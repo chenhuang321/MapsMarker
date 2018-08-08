@@ -1,0 +1,150 @@
+<html>
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-16" />
+    <title>Google Maps Geocoding Demo</title>
+    <script src="http://maps.google.com/maps/api/js?sensor=false" type="text/javascript"></script>
+    <script src="js/locations.js"></script>
+    <link rel="stylesheet" href="style/stylesheet.css">
+</head>
+
+<body>
+    <script type="text/javascript">
+        let map;
+        let data = getLocations(); // locations.js - getLocations();
+        // let data = [];
+        let delay = 1000;
+        // Creates the map
+        let marker;
+        let markers = [];
+        let isDrop = false;
+        let isDropShow = false;
+        let new_location;
+        let location_list = [];
+        const cookie_name = 'drop_index';
+        let current_index = 0;
+        // Initialize the map
+        function initialize() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 10,
+                center: new google.maps.LatLng(43.7797599, -79.350049), // For North York, ON
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            });
+        }
+
+        // This function takes an array argument containing a list of marker data
+        function generateMarkers(locations) {
+            let condition = false;
+            if (!isDrop) {
+                removeDuplicateMarkers();
+            }
+            for (let i = 0; i < locations.length; i++) {
+                condition = (i === current_index && isDrop && !isDropShow);
+                marker = new google.maps.Marker({
+                    position: new google.maps.LatLng(locations[i][1], locations[i][2]),
+                    map: map,
+                    animation: (condition) ? google.maps.Animation.DROP : google.maps.Animation.NULL,
+                    title: locations[i][0]
+                });
+                if (condition)
+                    isDropShow = true;
+                if (markers == null)
+                    markers = [marker]
+                else
+                    markers.push(marker);
+            }
+        }
+
+        function removeDuplicateMarkers() {
+            for (var i = 0; i < markers.length; i++) {
+                markers[i].setMap(null);
+            }
+        }
+
+        function dropNextMark() {
+            isDropShow = false;
+            current_index = parseInt(document.getElementById("pick_from").value);
+            if (current_index >= getLocations().length) {
+                document.getElementById("pick_from").value = 0;
+                current_index = parseInt(document.getElementById("pick_from").value);
+            }
+            console.log("User input: ", current_index);
+            console.log("index: ", current_index);
+            dropMarkIndex(current_index);
+            if (current_index < getLocations().length)
+                document.getElementById("pick_from").value = current_index + 1;
+            else
+                document.getElementById("pick_from").value = 0;
+        }
+
+        function dropMarkIndex(index) {
+            if (!isDrop) {
+                new_location = data[index];
+                if (location_list.length != 0 && new_location != null) {
+                    location_list.push(new_location);
+                } else {
+                    console.log("The first location arrives!");
+                    location_list = [new_location];
+                }
+                loadMap();
+            } else {
+                loadMap();
+            }
+            isDrop = true;
+        }
+    </script>
+
+    <div id="map"></div>
+    <div class="container">
+        <div id="reseach">
+            <button id="next_drop" onClick="dropNextMark();">Next</button>
+            <button id="from">from</button>
+            <input type="number" name="pick_from" id="pick_from" value="0">
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        window.onload = function () {
+            initialize();
+            loadMap();
+        };
+
+        function loadMap() {
+            if (location_list.length != 0) {
+                console.log("Data length: ", data.length + 1);
+                console.log("Data: ", data);
+            }
+            let loc2 = [];
+            let geocoder;
+            let i = 0;
+            console.log("Data: ", data);
+            if (data.length > 0) {
+                let isFinalShow = false;
+                for (i = 0; i < data.length && !isDropShow; i++) {
+                    let address = data[i].street + ", " + data[i].state + ", " + data[i].country;
+                    geocoder = new google.maps.Geocoder();
+                    setTimeout(function () {
+                        geocoder.geocode({ 'address': address }, function (results, status) {
+                            if (status === google.maps.GeocoderStatus.OK) {
+                                let sub_loc = [data.street, results[0].geometry.location.lat(), results[0].geometry.location.lng()];
+                                loc2.push(sub_loc);
+                                if (loc2.length % 1 === 0 || loc2.length === data.length) {
+                                    generateMarkers(loc2);
+                                }
+                            }
+                            else if (status === google.maps.GeocoderStatus.OVER_QUERY_LIMIT) {
+                                console.error("Over Query Limit");
+                                i--;
+                            }
+                            else {
+                                console.error("Danger! No reason!");
+                            }
+                        })
+                    }, i * delay);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
